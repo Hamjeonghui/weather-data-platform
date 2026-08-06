@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://rds-endpoint.amazonaws.com:5432/weather_platform
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate

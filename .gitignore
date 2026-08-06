@@ -1,4 +1,10 @@
+###docker
+.env
+*.iml
+
 ### Java template
+application-dev.yaml
+
 # Compiled class file
 *.class
 
