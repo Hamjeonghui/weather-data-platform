@@ -4,3 +4,8 @@ spring:
 
   profiles:
     active: dev
+
+jwt:
+  # access token 만료 시간(ms). 1시간
+  # 로그아웃은 서버 상태 없이 클라이언트에서 토큰을 삭제하는 방식이라, 탈취된 토큰의 유효 기간을 짧게 유지한다.
+  expiration: 3600000

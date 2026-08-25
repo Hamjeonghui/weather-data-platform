@@ -35,7 +35,6 @@ POST /api/auth/login
   "accessToken": "...",
   "user": {
     "loginId": "admin",
-    "name": "관리자",
     "role": "ADMIN"
   }
 }
@@ -69,7 +68,6 @@ GET /api/auth/me
 ```json
 {
   "loginId": "admin",
-  "name": "관리자",
   "role": "ADMIN"
 }
 ```
