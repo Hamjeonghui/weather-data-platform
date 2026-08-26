@@ -44,6 +44,13 @@ public class CollectionTarget {
     protected CollectionTarget() {
     }
 
+    public void updateSchedule(boolean enabled, String scheduleType, int intervalValue, OffsetDateTime updatedAt) {
+        this.enabled = enabled;
+        this.scheduleType = scheduleType;
+        this.intervalValue = intervalValue;
+        this.updatedAt = updatedAt;
+    }
+
     public Long getTargetId() {
         return targetId;
     }

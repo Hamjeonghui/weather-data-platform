@@ -42,22 +42,46 @@ public class CollectionJob {
     @Column(name = "error_code")
     private String errorCode;
 
+    @Column(name = "retry_of_job_id")
+    private Long retryOfJobId;
+
+    @Column(name = "received_count")
+    private Long receivedCount;
+
+    @Column(name = "saved_count")
+    private Long savedCount;
+
+    @Column(name = "duplicate_count")
+    private Long duplicateCount;
+
     protected CollectionJob() {
     }
 
     public CollectionJob(Long targetId, CollectionStatus status, TriggerType triggerType,
                           OffsetDateTime startedAt, String executedBy) {
+        this(targetId, status, triggerType, startedAt, executedBy, null);
+    }
+
+    public CollectionJob(Long targetId, CollectionStatus status, TriggerType triggerType,
+                          OffsetDateTime startedAt, String executedBy, Long retryOfJobId) {
         this.targetId = targetId;
         this.status = status;
         this.triggerType = triggerType;
         this.startedAt = startedAt;
         this.executedBy = executedBy;
+        this.retryOfJobId = retryOfJobId;
     }
 
     public void complete(CollectionStatus status, OffsetDateTime finishedAt, String errorCode) {
         this.status = status;
         this.finishedAt = finishedAt;
         this.errorCode = errorCode;
+    }
+
+    public void recordCounts(long receivedCount, long savedCount, long duplicateCount) {
+        this.receivedCount = receivedCount;
+        this.savedCount = savedCount;
+        this.duplicateCount = duplicateCount;
     }
 
     public Long getJobId() {
@@ -90,5 +114,21 @@ public class CollectionJob {
 
     public String getErrorCode() {
         return errorCode;
+    }
+
+    public Long getRetryOfJobId() {
+        return retryOfJobId;
+    }
+
+    public Long getReceivedCount() {
+        return receivedCount;
+    }
+
+    public Long getSavedCount() {
+        return savedCount;
+    }
+
+    public Long getDuplicateCount() {
+        return duplicateCount;
     }
 }

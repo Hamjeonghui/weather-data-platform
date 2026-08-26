@@ -11,6 +11,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
     COLLECTION_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "수집 대상을 찾을 수 없습니다."),
+    COLLECTION_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "수집 작업을 찾을 수 없습니다."),
     COLLECTION_ALREADY_RUNNING(HttpStatus.CONFLICT, "같은 수집 대상이 이미 실행 중입니다."),
     EXTERNAL_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "외부 API 호출 중 오류가 발생했습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");

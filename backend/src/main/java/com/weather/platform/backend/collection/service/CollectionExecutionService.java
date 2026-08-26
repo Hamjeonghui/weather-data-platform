@@ -60,12 +60,24 @@ public class CollectionExecutionService {
                 new CollectionJob(targetId, CollectionStatus.RUNNING, triggerType,
                         OffsetDateTime.now(SEOUL_OFFSET), executedBy));
 
-        boolean anySuccess = executor.collect(target, job);
+        CollectionResult result = executor.collect(target, job, 0);
+        job.recordCounts(result.receivedCount(), result.savedCount(), result.duplicateCount());
+        job.complete(result.anySuccess() ? CollectionStatus.SUCCESS : CollectionStatus.FAILED,
+                OffsetDateTime.now(SEOUL_OFFSET), result.anySuccess() ? null : ErrorCode.EXTERNAL_API_ERROR.name());
 
-        CollectionStatus finalStatus = anySuccess ? CollectionStatus.SUCCESS : CollectionStatus.FAILED;
-        job.complete(finalStatus, OffsetDateTime.now(SEOUL_OFFSET),
-                anySuccess ? null : ErrorCode.EXTERNAL_API_ERROR.name());
+        if (result.anySuccess()) {
+            return new ExecuteCollectionResponse(job.getJobId(), job.getStatus().name());
+        }
 
-        return new ExecuteCollectionResponse(job.getJobId(), job.getStatus().name());
+        CollectionJob retryJob = collectionJobRepository.save(
+                new CollectionJob(targetId, CollectionStatus.RUNNING, triggerType,
+                        OffsetDateTime.now(SEOUL_OFFSET), executedBy, job.getJobId()));
+
+        CollectionResult retryResult = executor.collect(target, retryJob, 1);
+        retryJob.recordCounts(retryResult.receivedCount(), retryResult.savedCount(), retryResult.duplicateCount());
+        retryJob.complete(retryResult.anySuccess() ? CollectionStatus.SUCCESS : CollectionStatus.FAILED,
+                OffsetDateTime.now(SEOUL_OFFSET), retryResult.anySuccess() ? null : ErrorCode.EXTERNAL_API_ERROR.name());
+
+        return new ExecuteCollectionResponse(retryJob.getJobId(), retryJob.getStatus().name());
     }
 }

@@ -47,51 +47,74 @@ public class MidForecastCollectionService implements CollectionExecutor {
     }
 
     @Override
-    public boolean collect(CollectionTarget target, CollectionJob job) {
+    public CollectionResult collect(CollectionTarget target, CollectionJob job, int cyclesBack) {
         Long targetId = target.getTargetId();
-        OffsetDateTime baseAt = calculateLatestAnnouncementTime(OffsetDateTime.now(SEOUL_OFFSET));
+        OffsetDateTime baseAt = calculateLatestAnnouncementTime(OffsetDateTime.now(SEOUL_OFFSET))
+                .minusHours(12L * cyclesBack);
         String tmFc = baseAt.format(TM_FC_FORMATTER);
 
         List<LocationInfo> locations = locationInfoRepository.findAll();
         boolean anySuccess = false;
+        long received = 0;
+        long saved = 0;
+        long duplicate = 0;
 
         for (LocationInfo location : locations) {
             try {
                 Map<String, Object> item = kmaMidForecastClient.fetchMidLandFcst(location.getRegId(), tmFc);
-                saveForecastRows(targetId, job.getJobId(), location.getRegId(), baseAt, item);
+                long[] counts = saveForecastRows(targetId, job.getJobId(), location.getRegId(), baseAt, item);
+                received += counts[0];
+                saved += counts[1];
+                duplicate += counts[2];
                 anySuccess = true;
             } catch (Exception e) {
                 log.warn("중기예보 수집 실패: regId={}", location.getRegId(), e);
             }
         }
 
-        return anySuccess;
+        return new CollectionResult(anySuccess, received, saved, duplicate);
     }
 
-    private void saveForecastRows(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt, Map<String, Object> item) {
+    private long[] saveForecastRows(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt, Map<String, Object> item) {
         LocalDate baseDate = baseAt.toLocalDate();
+        long[] counts = new long[3];
 
         for (int day : AM_PM_DAYS) {
-            saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.AM), ForecastPeriod.AM,
-                    item, "rnSt" + day + "Am", "wf" + day + "Am");
-            saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.PM), ForecastPeriod.PM,
-                    item, "rnSt" + day + "Pm", "wf" + day + "Pm");
+            accumulate(counts, saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.AM),
+                    ForecastPeriod.AM, item, "rnSt" + day + "Am", "wf" + day + "Am"));
+            accumulate(counts, saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.PM),
+                    ForecastPeriod.PM, item, "rnSt" + day + "Pm", "wf" + day + "Pm"));
         }
         for (int day : DAY_ONLY_DAYS) {
-            saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.DAY), ForecastPeriod.DAY,
-                    item, "rnSt" + day, "wf" + day);
+            accumulate(counts, saveIfPresent(targetId, jobId, stnId, baseAt, forecastAt(baseDate, day, ForecastPeriod.DAY),
+                    ForecastPeriod.DAY, item, "rnSt" + day, "wf" + day));
         }
+        return counts;
     }
 
-    private void saveIfPresent(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt, OffsetDateTime fcstAt,
-                                ForecastPeriod period, Map<String, Object> item, String rnStKey, String wfKey) {
+    /**
+     * @return null이면 저장 시도를 하지 않은 경우, true면 신규 삽입, false면 기존 행 갱신(중복)
+     */
+    private Boolean saveIfPresent(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt, OffsetDateTime fcstAt,
+                                   ForecastPeriod period, Map<String, Object> item, String rnStKey, String wfKey) {
         if (!item.containsKey(rnStKey) && !item.containsKey(wfKey)) {
-            return;
+            return null;
         }
         BigDecimal rnSt = toBigDecimal(item.get(rnStKey));
         Object wfValue = item.get(wfKey);
         String wf = wfValue == null ? null : wfValue.toString();
-        midForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt, rnSt, wf, period.name());
+        return midForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt, rnSt, wf, period.name());
+    }
+
+    private void accumulate(long[] counts, Boolean inserted) {
+        if (inserted == null) {
+            return;
+        }
+        counts[0]++;
+        counts[1]++;
+        if (!inserted) {
+            counts[2]++;
+        }
     }
 
     private BigDecimal toBigDecimal(Object value) {

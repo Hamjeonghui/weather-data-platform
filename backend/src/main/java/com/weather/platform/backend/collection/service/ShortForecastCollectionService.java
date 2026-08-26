@@ -55,31 +55,38 @@ public class ShortForecastCollectionService implements CollectionExecutor {
     }
 
     @Override
-    public boolean collect(CollectionTarget target, CollectionJob job) {
+    public CollectionResult collect(CollectionTarget target, CollectionJob job, int cyclesBack) {
         Long targetId = target.getTargetId();
-        OffsetDateTime baseAt = calculateLatestBaseTime(OffsetDateTime.now(SEOUL_OFFSET));
+        OffsetDateTime baseAt = calculateLatestBaseTime(OffsetDateTime.now(SEOUL_OFFSET))
+                .minusHours(3L * cyclesBack);
         String baseDate = baseAt.format(DATE_FORMATTER);
         String baseTime = baseAt.format(TIME_FORMATTER);
 
         List<LocationInfo> locations = locationInfoRepository.findAll();
         boolean anySuccess = false;
+        long received = 0;
+        long saved = 0;
+        long duplicate = 0;
 
         for (LocationInfo location : locations) {
             try {
                 List<Map<String, Object>> items = kmaVilageFcstClient.fetchVilageFcst(
                         shortForecastUrl, location.getNx(), location.getNy(), baseDate, baseTime);
-                saveForecastRows(targetId, job.getJobId(), location.getRegId(), baseAt, items);
+                long[] counts = saveForecastRows(targetId, job.getJobId(), location.getRegId(), baseAt, items);
+                received += counts[0];
+                saved += counts[1];
+                duplicate += counts[2];
                 anySuccess = true;
             } catch (Exception e) {
                 log.warn("단기예보 수집 실패: regId={}", location.getRegId(), e);
             }
         }
 
-        return anySuccess;
+        return new CollectionResult(anySuccess, received, saved, duplicate);
     }
 
-    private void saveForecastRows(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt,
-                                   List<Map<String, Object>> items) {
+    private long[] saveForecastRows(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt,
+                                     List<Map<String, Object>> items) {
         Map<String, Map<String, String>> grouped = new LinkedHashMap<>();
 
         for (Map<String, Object> item : items) {
@@ -95,9 +102,10 @@ public class ShortForecastCollectionService implements CollectionExecutor {
             group.put(category, String.valueOf(item.get("fcstValue")));
         }
 
+        long[] counts = new long[3];
         for (Map<String, String> group : grouped.values()) {
             OffsetDateTime fcstAt = toOffsetDateTime(group.get("fcstDate"), group.get("fcstTime"));
-            shortForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt,
+            boolean inserted = shortForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt,
                     toDecimal(group.get("POP")),
                     PrecipitationTextParser.parse(group.get("PCP")),
                     toDecimal(group.get("REH")),
@@ -106,7 +114,13 @@ public class ShortForecastCollectionService implements CollectionExecutor {
                     toDecimal(group.get("TMX")),
                     toDecimal(group.get("VEC")),
                     toDecimal(group.get("WSD")));
+            counts[0]++;
+            counts[1]++;
+            if (!inserted) {
+                counts[2]++;
+            }
         }
+        return counts;
     }
 
     private BigDecimal toDecimal(String value) {

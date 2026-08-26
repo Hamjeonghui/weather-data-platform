@@ -6,6 +6,7 @@ import com.weather.platform.backend.collection.entity.TriggerType;
 import com.weather.platform.backend.collection.repository.CollectionJobRepository;
 import com.weather.platform.backend.collection.repository.CollectionTargetRepository;
 import com.weather.platform.backend.collection.service.CollectionExecutionService;
+import com.weather.platform.backend.collection.service.ScheduleIntervalCalculator;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -57,17 +58,8 @@ public class CollectionScheduler {
             return true;
         }
 
-        Duration interval = toDuration(target.getScheduleType(), target.getIntervalValue());
+        Duration interval = ScheduleIntervalCalculator.toDuration(target.getScheduleType(), target.getIntervalValue());
         OffsetDateTime nextDue = lastJob.get().getStartedAt().plus(interval);
         return !OffsetDateTime.now(SEOUL_OFFSET).isBefore(nextDue);
-    }
-
-    private Duration toDuration(String scheduleType, int intervalValue) {
-        return switch (scheduleType) {
-            case "MINUTE" -> Duration.ofMinutes(intervalValue);
-            case "HOUR" -> Duration.ofHours(intervalValue);
-            case "DAY" -> Duration.ofDays(intervalValue);
-            default -> throw new IllegalStateException("지원하지 않는 schedule_type입니다: " + scheduleType);
-        };
     }
 }
