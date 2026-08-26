@@ -6,13 +6,13 @@
   https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000003562282&fileDetailSn=1
 - 확인일: 2026-08-11
 - Base URL: `https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst`
-- 인증 환경변수: `KMA_SERVICE_KEY`
+- 인증 환경변수: `kma.service-key`
 - 제공 범위: 최근 24시간 발표자료
 
 ## 사용 파라미터
 | 외부 필드 | 타입/형식 | 필수 | 설명 | 값 결정 방식 | 내부 출처 | 예시 |
 |---|---|---:|---|---|---|---|
-| `serviceKey` | String | Y | 공공데이터포털 인증키 | 환경변수에서 읽음 | `KMA_SERVICE_KEY` | 실제 값 미기재 |
+| `serviceKey` | String | Y | 공공데이터포털 인증키 | 환경변수에서 읽음 | `kma.service-key` | 실제 값 미기재 |
 | `pageNo` | Integer | Y | 페이지 번호 | `1`부터 시작 | 수집 로직 | `1` |
 | `numOfRows` | Integer | Y | 페이지당 결과 수 | 프로젝트 고정값 | 애플리케이션 설정 | `10` |
 | `dataType` | String | N | 응답 데이터 형식 | `JSON` 고정 | 애플리케이션 설정 | `JSON` |

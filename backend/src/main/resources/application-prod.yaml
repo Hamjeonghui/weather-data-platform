@@ -14,3 +14,7 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGIN}
+
+kma:
+  service-key: your-service-key
+  mid-forecast-url: https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
