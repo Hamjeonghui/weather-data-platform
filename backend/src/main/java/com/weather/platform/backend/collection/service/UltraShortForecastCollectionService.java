@@ -3,7 +3,7 @@ package com.weather.platform.backend.collection.service;
 import com.weather.platform.backend.collection.client.KmaVilageFcstClient;
 import com.weather.platform.backend.collection.entity.CollectionJob;
 import com.weather.platform.backend.collection.entity.CollectionTarget;
-import com.weather.platform.backend.forecast.repository.ShortForecastRepository;
+import com.weather.platform.backend.forecast.repository.UltraShortForecastRepository;
 import com.weather.platform.backend.location.entity.LocationInfo;
 import com.weather.platform.backend.location.repository.LocationInfoRepository;
 import java.math.BigDecimal;
@@ -23,35 +23,34 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ShortForecastCollectionService implements CollectionExecutor {
+public class UltraShortForecastCollectionService implements CollectionExecutor {
 
-    private static final Logger log = LoggerFactory.getLogger(ShortForecastCollectionService.class);
+    private static final Logger log = LoggerFactory.getLogger(UltraShortForecastCollectionService.class);
 
     private static final ZoneOffset SEOUL_OFFSET = ZoneOffset.of("+09:00");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmm");
-    private static final int[] BASE_HOURS = {2, 5, 8, 11, 14, 17, 20, 23};
     private static final Set<String> SUPPORTED_CATEGORIES =
-            Set.of("POP", "PCP", "REH", "TMP", "TMN", "TMX", "VEC", "WSD");
+            Set.of("POP", "RN1", "REH", "T1H", "VEC", "WSD", "LGT");
 
     private final LocationInfoRepository locationInfoRepository;
-    private final ShortForecastRepository shortForecastRepository;
+    private final UltraShortForecastRepository ultraShortForecastRepository;
     private final KmaVilageFcstClient kmaVilageFcstClient;
-    private final String shortForecastUrl;
+    private final String ultraShortForecastUrl;
 
-    public ShortForecastCollectionService(LocationInfoRepository locationInfoRepository,
-                                           ShortForecastRepository shortForecastRepository,
-                                           KmaVilageFcstClient kmaVilageFcstClient,
-                                           @Value("${kma.short-forecast-url}") String shortForecastUrl) {
+    public UltraShortForecastCollectionService(LocationInfoRepository locationInfoRepository,
+                                                UltraShortForecastRepository ultraShortForecastRepository,
+                                                KmaVilageFcstClient kmaVilageFcstClient,
+                                                @Value("${kma.ultra-short-forecast-url}") String ultraShortForecastUrl) {
         this.locationInfoRepository = locationInfoRepository;
-        this.shortForecastRepository = shortForecastRepository;
+        this.ultraShortForecastRepository = ultraShortForecastRepository;
         this.kmaVilageFcstClient = kmaVilageFcstClient;
-        this.shortForecastUrl = shortForecastUrl;
+        this.ultraShortForecastUrl = ultraShortForecastUrl;
     }
 
     @Override
     public String supportedDataCode() {
-        return "SHORT_FORECAST";
+        return "ULTRA_SHORT_FORECAST";
     }
 
     @Override
@@ -67,11 +66,11 @@ public class ShortForecastCollectionService implements CollectionExecutor {
         for (LocationInfo location : locations) {
             try {
                 List<Map<String, Object>> items = kmaVilageFcstClient.fetchVilageFcst(
-                        shortForecastUrl, location.getNx(), location.getNy(), baseDate, baseTime);
+                        ultraShortForecastUrl, location.getNx(), location.getNy(), baseDate, baseTime);
                 saveForecastRows(targetId, job.getJobId(), location.getRegId(), baseAt, items);
                 anySuccess = true;
             } catch (Exception e) {
-                log.warn("단기예보 수집 실패: regId={}", location.getRegId(), e);
+                log.warn("초단기예보 수집 실패: regId={}", location.getRegId(), e);
             }
         }
 
@@ -97,15 +96,14 @@ public class ShortForecastCollectionService implements CollectionExecutor {
 
         for (Map<String, String> group : grouped.values()) {
             OffsetDateTime fcstAt = toOffsetDateTime(group.get("fcstDate"), group.get("fcstTime"));
-            shortForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt,
+            ultraShortForecastRepository.upsert(jobId, targetId, stnId, baseAt, fcstAt,
                     toDecimal(group.get("POP")),
-                    PrecipitationTextParser.parse(group.get("PCP")),
+                    PrecipitationTextParser.parse(group.get("RN1")),
                     toDecimal(group.get("REH")),
-                    toDecimal(group.get("TMP")),
-                    toDecimal(group.get("TMN")),
-                    toDecimal(group.get("TMX")),
+                    toDecimal(group.get("T1H")),
                     toDecimal(group.get("VEC")),
-                    toDecimal(group.get("WSD")));
+                    toDecimal(group.get("WSD")),
+                    toDecimal(group.get("LGT")));
         }
     }
 
@@ -120,12 +118,10 @@ public class ShortForecastCollectionService implements CollectionExecutor {
     }
 
     private OffsetDateTime calculateLatestBaseTime(OffsetDateTime now) {
-        for (int i = BASE_HOURS.length - 1; i >= 0; i--) {
-            OffsetDateTime candidate = now.withHour(BASE_HOURS[i]).withMinute(0).withSecond(0).withNano(0);
-            if (!now.isBefore(candidate.plusMinutes(10))) {
-                return candidate;
-            }
+        OffsetDateTime candidate = now.withMinute(30).withSecond(0).withNano(0);
+        if (now.isBefore(candidate.plusMinutes(15))) {
+            candidate = candidate.minusHours(1);
         }
-        return now.minusDays(1).withHour(23).withMinute(0).withSecond(0).withNano(0);
+        return candidate;
     }
 }

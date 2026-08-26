@@ -18,3 +18,5 @@ app:
 kma:
   service-key: your-service-key
   mid-forecast-url: https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
+  short-forecast-url: https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst
+  ultra-short-forecast-url: https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst

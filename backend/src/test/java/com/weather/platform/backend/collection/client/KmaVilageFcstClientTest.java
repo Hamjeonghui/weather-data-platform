@@ -13,20 +13,20 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-class KmaShortForecastClientTest {
+class KmaVilageFcstClientTest {
 
     private static final String BASE_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 
-    private KmaShortForecastClient buildClient(MockRestServiceServer[] serverHolder) {
+    private KmaVilageFcstClient buildClient(MockRestServiceServer[] serverHolder) {
         RestClient.Builder builder = RestClient.builder();
         serverHolder[0] = MockRestServiceServer.bindTo(builder).build();
-        return new KmaShortForecastClient(builder, BASE_URL, "test-key");
+        return new KmaVilageFcstClient(builder, "test-key");
     }
 
     @Test
     void 총_건수가_numOfRows보다_많으면_다음_페이지를_이어서_조회한다() {
         MockRestServiceServer[] serverHolder = new MockRestServiceServer[1];
-        KmaShortForecastClient client = buildClient(serverHolder);
+        KmaVilageFcstClient client = buildClient(serverHolder);
         MockRestServiceServer server = serverHolder[0];
 
         server.expect(requestTo(org.hamcrest.Matchers.containsString("pageNo=1")))
@@ -34,7 +34,7 @@ class KmaShortForecastClientTest {
         server.expect(requestTo(org.hamcrest.Matchers.containsString("pageNo=2")))
                 .andRespond(withSuccess(pageResponse(2, 1000, 1500), MediaType.APPLICATION_JSON));
 
-        var items = client.fetchVilageFcst(60, 127, "20260826", "0500");
+        var items = client.fetchVilageFcst(BASE_URL, 60, 127, "20260826", "0500");
 
         assertThat(items).hasSize(1500);
         server.verify();
@@ -43,7 +43,7 @@ class KmaShortForecastClientTest {
     @Test
     void 결과코드가_실패이면_EXTERNAL_API_ERROR_예외가_발생한다() {
         MockRestServiceServer[] serverHolder = new MockRestServiceServer[1];
-        KmaShortForecastClient client = buildClient(serverHolder);
+        KmaVilageFcstClient client = buildClient(serverHolder);
         MockRestServiceServer server = serverHolder[0];
 
         server.expect(requestTo(org.hamcrest.Matchers.containsString("pageNo=1")))
@@ -51,7 +51,7 @@ class KmaShortForecastClientTest {
                         {"response":{"header":{"resultCode":"03","resultMsg":"NODATA_ERROR"}}}
                         """, MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.fetchVilageFcst(60, 127, "20260826", "0500"))
+        assertThatThrownBy(() -> client.fetchVilageFcst(BASE_URL, 60, 127, "20260826", "0500"))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.EXTERNAL_API_ERROR);

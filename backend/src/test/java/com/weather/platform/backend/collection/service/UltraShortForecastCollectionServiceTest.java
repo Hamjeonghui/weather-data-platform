@@ -12,7 +12,7 @@ import static org.mockito.Mockito.verify;
 import com.weather.platform.backend.collection.client.KmaVilageFcstClient;
 import com.weather.platform.backend.collection.entity.CollectionJob;
 import com.weather.platform.backend.collection.entity.CollectionTarget;
-import com.weather.platform.backend.forecast.repository.ShortForecastRepository;
+import com.weather.platform.backend.forecast.repository.UltraShortForecastRepository;
 import com.weather.platform.backend.location.entity.LocationInfo;
 import com.weather.platform.backend.location.repository.LocationInfoRepository;
 import java.math.BigDecimal;
@@ -26,23 +26,23 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ShortForecastCollectionServiceTest {
+class UltraShortForecastCollectionServiceTest {
 
     @Mock
     private LocationInfoRepository locationInfoRepository;
 
     @Mock
-    private ShortForecastRepository shortForecastRepository;
+    private UltraShortForecastRepository ultraShortForecastRepository;
 
     @Mock
     private KmaVilageFcstClient kmaVilageFcstClient;
 
     @InjectMocks
-    private ShortForecastCollectionService shortForecastCollectionService;
+    private UltraShortForecastCollectionService ultraShortForecastCollectionService;
 
     @Test
-    void 지원하는_데이터코드는_SHORT_FORECAST이다() {
-        assertThat(shortForecastCollectionService.supportedDataCode()).isEqualTo("SHORT_FORECAST");
+    void 지원하는_데이터코드는_ULTRA_SHORT_FORECAST이다() {
+        assertThat(ultraShortForecastCollectionService.supportedDataCode()).isEqualTo("ULTRA_SHORT_FORECAST");
     }
 
     @Test
@@ -56,31 +56,22 @@ class ShortForecastCollectionServiceTest {
                 .willReturn(List.of(new LocationInfo("11B10101", "1100000000", "서울특별시", 60L, 127L)));
         given(kmaVilageFcstClient.fetchVilageFcst(any(), anyLong(), anyLong(), anyString(), anyString()))
                 .willReturn(List.of(
-                        item("0600", "TMP", "25"),
-                        item("0600", "PCP", "강수없음"),
-                        item("0600", "SKY", "4"),
-                        item("0700", "PCP", "1mm 미만"),
-                        item("0800", "PCP", "3.0mm"),
-                        item("0900", "PCP", "30.0~50.0mm"),
-                        item("1000", "PCP", "50.0mm 이상")
+                        item("1500", "T1H", "29"),
+                        item("1500", "LGT", "0"),
+                        item("1500", "RN1", "강수없음"),
+                        item("1500", "SKY", "4"),
+                        item("1600", "RN1", "1.0mm")
                 ));
 
-        boolean result = shortForecastCollectionService.collect(target, job);
+        boolean result = ultraShortForecastCollectionService.collect(target, job);
 
         assertThat(result).isTrue();
 
         ArgumentCaptor<BigDecimal> rnCaptor = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(shortForecastRepository, org.mockito.Mockito.times(5)).upsert(
-                eq(10L), eq(1L), eq("11B10101"), any(), any(), any(), rnCaptor.capture(),
-                any(), any(), any(), any(), any(), any());
+        verify(ultraShortForecastRepository, org.mockito.Mockito.times(2)).upsert(
+                eq(10L), eq(1L), eq("11B10101"), any(), any(), any(), rnCaptor.capture(), any(), any(), any(), any(), any());
 
-        List<BigDecimal> rnValues = rnCaptor.getAllValues();
-        assertThat(rnValues).containsExactly(
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                new BigDecimal("3.0"),
-                new BigDecimal("30.0"),
-                new BigDecimal("50.0"));
+        assertThat(rnCaptor.getAllValues()).containsExactly(BigDecimal.ZERO, new BigDecimal("1.0"));
     }
 
     @Test
@@ -94,7 +85,7 @@ class ShortForecastCollectionServiceTest {
         given(kmaVilageFcstClient.fetchVilageFcst(any(), anyLong(), anyLong(), anyString(), anyString()))
                 .willThrow(new RuntimeException("API 호출 실패"));
 
-        boolean result = shortForecastCollectionService.collect(target, job);
+        boolean result = ultraShortForecastCollectionService.collect(target, job);
 
         assertThat(result).isFalse();
     }
