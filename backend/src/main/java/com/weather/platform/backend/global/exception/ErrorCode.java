@@ -10,6 +10,7 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 부족합니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다."),
     COLLECTION_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "수집 대상을 찾을 수 없습니다."),
     COLLECTION_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "수집 작업을 찾을 수 없습니다."),
     COLLECTION_ALREADY_RUNNING(HttpStatus.CONFLICT, "같은 수집 대상이 이미 실행 중입니다."),

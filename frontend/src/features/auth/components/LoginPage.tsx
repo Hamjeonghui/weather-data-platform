@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useLogin } from '../hooks/useLogin'
 import { useAuthStore } from '../store/authStore'
 import { getApiErrorMessage } from '../../../lib/apiClient'
@@ -11,12 +11,10 @@ export function LoginPage() {
 
   const isAuthenticated = useAuthStore((state) => Boolean(state.accessToken))
   const navigate = useNavigate()
-  const location = useLocation()
   const loginMutation = useLogin()
 
   if (isAuthenticated) {
-    const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
-    return <Navigate to={redirectTo} replace />
+    return <Navigate to="/" replace />
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -25,8 +23,7 @@ export function LoginPage() {
       { loginId, password },
       {
         onSuccess: () => {
-          const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
-          navigate(redirectTo, { replace: true })
+          navigate('/', { replace: true })
         },
       },
     )
