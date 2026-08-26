@@ -1,16 +1,10 @@
 package com.weather.platform.backend.collection.service;
 
 import com.weather.platform.backend.collection.client.KmaMidForecastClient;
-import com.weather.platform.backend.collection.dto.ExecuteCollectionResponse;
 import com.weather.platform.backend.collection.entity.CollectionJob;
-import com.weather.platform.backend.collection.entity.CollectionStatus;
-import com.weather.platform.backend.collection.entity.TriggerType;
-import com.weather.platform.backend.collection.repository.CollectionJobRepository;
-import com.weather.platform.backend.collection.repository.CollectionTargetRepository;
+import com.weather.platform.backend.collection.entity.CollectionTarget;
 import com.weather.platform.backend.forecast.entity.ForecastPeriod;
 import com.weather.platform.backend.forecast.repository.MidForecastRepository;
-import com.weather.platform.backend.global.exception.BusinessException;
-import com.weather.platform.backend.global.exception.ErrorCode;
 import com.weather.platform.backend.location.entity.LocationInfo;
 import com.weather.platform.backend.location.repository.LocationInfoRepository;
 import java.math.BigDecimal;
@@ -24,10 +18,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class MidForecastCollectionService {
+public class MidForecastCollectionService implements CollectionExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(MidForecastCollectionService.class);
 
@@ -36,39 +29,28 @@ public class MidForecastCollectionService {
     private static final int[] AM_PM_DAYS = {3, 4, 5, 6, 7};
     private static final int[] DAY_ONLY_DAYS = {8, 9, 10};
 
-    private final CollectionTargetRepository collectionTargetRepository;
-    private final CollectionJobRepository collectionJobRepository;
     private final LocationInfoRepository locationInfoRepository;
     private final MidForecastRepository midForecastRepository;
     private final KmaMidForecastClient kmaMidForecastClient;
 
-    public MidForecastCollectionService(CollectionTargetRepository collectionTargetRepository,
-                                         CollectionJobRepository collectionJobRepository,
-                                         LocationInfoRepository locationInfoRepository,
+    public MidForecastCollectionService(LocationInfoRepository locationInfoRepository,
                                          MidForecastRepository midForecastRepository,
                                          KmaMidForecastClient kmaMidForecastClient) {
-        this.collectionTargetRepository = collectionTargetRepository;
-        this.collectionJobRepository = collectionJobRepository;
         this.locationInfoRepository = locationInfoRepository;
         this.midForecastRepository = midForecastRepository;
         this.kmaMidForecastClient = kmaMidForecastClient;
     }
 
-    @Transactional
-    public ExecuteCollectionResponse execute(Long targetId, String executedBy) {
-        collectionTargetRepository.findById(targetId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COLLECTION_TARGET_NOT_FOUND));
+    @Override
+    public String supportedDataCode() {
+        return "MID_FORECAST";
+    }
 
-        if (collectionJobRepository.existsByTargetIdAndStatus(targetId, CollectionStatus.RUNNING)) {
-            throw new BusinessException(ErrorCode.COLLECTION_ALREADY_RUNNING);
-        }
-
+    @Override
+    public boolean collect(CollectionTarget target, CollectionJob job) {
+        Long targetId = target.getTargetId();
         OffsetDateTime baseAt = calculateLatestAnnouncementTime(OffsetDateTime.now(SEOUL_OFFSET));
         String tmFc = baseAt.format(TM_FC_FORMATTER);
-
-        CollectionJob job = collectionJobRepository.save(
-                new CollectionJob(targetId, CollectionStatus.RUNNING, TriggerType.MANUAL,
-                        OffsetDateTime.now(SEOUL_OFFSET), executedBy));
 
         List<LocationInfo> locations = locationInfoRepository.findAll();
         boolean anySuccess = false;
@@ -83,11 +65,7 @@ public class MidForecastCollectionService {
             }
         }
 
-        CollectionStatus finalStatus = anySuccess ? CollectionStatus.SUCCESS : CollectionStatus.FAILED;
-        job.complete(finalStatus, OffsetDateTime.now(SEOUL_OFFSET),
-                anySuccess ? null : ErrorCode.EXTERNAL_API_ERROR.name());
-
-        return new ExecuteCollectionResponse(job.getJobId(), job.getStatus().name());
+        return anySuccess;
     }
 
     private void saveForecastRows(Long targetId, Long jobId, String stnId, OffsetDateTime baseAt, Map<String, Object> item) {

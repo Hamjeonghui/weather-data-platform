@@ -23,9 +23,10 @@ public class KmaMidForecastClient {
     private final String baseUrl;
     private final String serviceKey;
 
-    public KmaMidForecastClient(@Value("${kma.mid-forecast-url}") String baseUrl,
+    public KmaMidForecastClient(RestClient.Builder restClientBuilder,
+                                 @Value("${kma.mid-forecast-url}") String baseUrl,
                                  @Value("${kma.service-key}") String serviceKey) {
-        this.restClient = RestClient.create();
+        this.restClient = restClientBuilder.build();
         this.baseUrl = baseUrl;
         this.serviceKey = serviceKey;
     }

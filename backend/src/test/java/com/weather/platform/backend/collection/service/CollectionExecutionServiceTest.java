@@ -1,0 +1,116 @@
+package com.weather.platform.backend.collection.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import com.weather.platform.backend.collection.dto.ExecuteCollectionResponse;
+import com.weather.platform.backend.collection.entity.CollectionStatus;
+import com.weather.platform.backend.collection.entity.CollectionTarget;
+import com.weather.platform.backend.collection.repository.CollectionJobRepository;
+import com.weather.platform.backend.collection.repository.CollectionTargetRepository;
+import com.weather.platform.backend.global.exception.BusinessException;
+import com.weather.platform.backend.global.exception.ErrorCode;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class CollectionExecutionServiceTest {
+
+    @Mock
+    private CollectionTargetRepository collectionTargetRepository;
+
+    @Mock
+    private CollectionJobRepository collectionJobRepository;
+
+    @Mock
+    private CollectionExecutor collectionExecutor;
+
+    private CollectionTarget targetWithDataCode(String dataCode) {
+        CollectionTarget target = mock(CollectionTarget.class);
+        given(target.getDataCode()).willReturn(dataCode);
+        return target;
+    }
+
+    @Test
+    void 존재하지_않는_수집대상이면_COLLECTION_TARGET_NOT_FOUND_예외가_발생한다() {
+        CollectionExecutionService collectionExecutionService = new CollectionExecutionService(
+                collectionTargetRepository, collectionJobRepository, List.of());
+        given(collectionTargetRepository.findById(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> collectionExecutionService.execute(1L, "admin"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.COLLECTION_TARGET_NOT_FOUND);
+    }
+
+    @Test
+    void 이미_실행중인_작업이_있으면_COLLECTION_ALREADY_RUNNING_예외가_발생한다() {
+        CollectionExecutionService collectionExecutionService = new CollectionExecutionService(
+                collectionTargetRepository, collectionJobRepository, List.of());
+        given(collectionTargetRepository.findById(1L)).willReturn(Optional.of(mock(CollectionTarget.class)));
+        given(collectionJobRepository.existsByTargetIdAndStatus(1L, CollectionStatus.RUNNING)).willReturn(true);
+
+        assertThatThrownBy(() -> collectionExecutionService.execute(1L, "admin"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.COLLECTION_ALREADY_RUNNING);
+
+        verify(collectionJobRepository, never()).save(any());
+    }
+
+    @Test
+    void 데이터코드에_맞는_실행기가_없으면_INTERNAL_SERVER_ERROR_예외가_발생한다() {
+        given(collectionExecutor.supportedDataCode()).willReturn("MID_FORECAST");
+        CollectionExecutionService collectionExecutionService = new CollectionExecutionService(
+                collectionTargetRepository, collectionJobRepository, List.of(collectionExecutor));
+        CollectionTarget target = targetWithDataCode("SHORT_FORECAST");
+        given(collectionTargetRepository.findById(1L)).willReturn(Optional.of(target));
+        given(collectionJobRepository.existsByTargetIdAndStatus(1L, CollectionStatus.RUNNING)).willReturn(false);
+
+        assertThatThrownBy(() -> collectionExecutionService.execute(1L, "admin"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    void 실행기가_성공하면_작업_상태가_SUCCESS이다() {
+        given(collectionExecutor.supportedDataCode()).willReturn("MID_FORECAST");
+        CollectionExecutionService collectionExecutionService = new CollectionExecutionService(
+                collectionTargetRepository, collectionJobRepository, List.of(collectionExecutor));
+        CollectionTarget target = targetWithDataCode("MID_FORECAST");
+        given(collectionTargetRepository.findById(1L)).willReturn(Optional.of(target));
+        given(collectionJobRepository.existsByTargetIdAndStatus(1L, CollectionStatus.RUNNING)).willReturn(false);
+        given(collectionJobRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(collectionExecutor.collect(any(), any())).willReturn(true);
+
+        ExecuteCollectionResponse response = collectionExecutionService.execute(1L, "admin");
+
+        assertThat(response.status()).isEqualTo(CollectionStatus.SUCCESS.name());
+    }
+
+    @Test
+    void 실행기가_실패하면_작업_상태가_FAILED이다() {
+        given(collectionExecutor.supportedDataCode()).willReturn("MID_FORECAST");
+        CollectionExecutionService collectionExecutionService = new CollectionExecutionService(
+                collectionTargetRepository, collectionJobRepository, List.of(collectionExecutor));
+        CollectionTarget target = targetWithDataCode("MID_FORECAST");
+        given(collectionTargetRepository.findById(1L)).willReturn(Optional.of(target));
+        given(collectionJobRepository.existsByTargetIdAndStatus(1L, CollectionStatus.RUNNING)).willReturn(false);
+        given(collectionJobRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(collectionExecutor.collect(any(), any())).willReturn(false);
+
+        ExecuteCollectionResponse response = collectionExecutionService.execute(1L, "admin");
+
+        assertThat(response.status()).isEqualTo(CollectionStatus.FAILED.name());
+    }
+}

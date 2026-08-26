@@ -11,7 +11,7 @@ public record KmaResponse(Response response) {
     public record Header(String resultCode, String resultMsg) {
     }
 
-    public record Body(Items items) {
+    public record Body(Items items, Integer totalCount) {
     }
 
     public record Items(List<Map<String, Object>> item) {
