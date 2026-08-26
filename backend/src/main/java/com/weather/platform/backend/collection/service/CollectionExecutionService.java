@@ -38,6 +38,11 @@ public class CollectionExecutionService {
 
     @Transactional
     public ExecuteCollectionResponse execute(Long targetId, String executedBy) {
+        return execute(targetId, executedBy, TriggerType.MANUAL);
+    }
+
+    @Transactional
+    public ExecuteCollectionResponse execute(Long targetId, String executedBy, TriggerType triggerType) {
         CollectionTarget target = collectionTargetRepository.findById(targetId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COLLECTION_TARGET_NOT_FOUND));
 
@@ -52,7 +57,7 @@ public class CollectionExecutionService {
         }
 
         CollectionJob job = collectionJobRepository.save(
-                new CollectionJob(targetId, CollectionStatus.RUNNING, TriggerType.MANUAL,
+                new CollectionJob(targetId, CollectionStatus.RUNNING, triggerType,
                         OffsetDateTime.now(SEOUL_OFFSET), executedBy));
 
         boolean anySuccess = executor.collect(target, job);
