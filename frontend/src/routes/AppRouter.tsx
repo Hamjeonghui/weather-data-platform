@@ -1,10 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useBootstrapAuth } from '../features/auth/hooks/useBootstrapAuth'
 import { LoginPage } from '../features/auth/components/LoginPage'
-import { HomePage } from '../pages/HomePage'
 import { AdminPage } from '../pages/AdminPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoute } from './ProtectedRoute'
+import { RoleBasedHome } from './RoleBasedHome'
 
 export function AppRouter() {
   const { isBootstrapping } = useBootstrapAuth()
@@ -20,7 +20,7 @@ export function AppRouter() {
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            <RoleBasedHome />
           </ProtectedRoute>
         }
       />
